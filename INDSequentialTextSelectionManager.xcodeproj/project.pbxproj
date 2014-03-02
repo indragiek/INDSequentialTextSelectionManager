@@ -18,6 +18,8 @@
 		03C02F6118C3106A000C6389 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 03C02F4018C3106A000C6389 /* Cocoa.framework */; };
 		03C02F6918C3106A000C6389 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 03C02F6718C3106A000C6389 /* InfoPlist.strings */; };
 		03C02F6B18C3106A000C6389 /* INDSequentialTextSelectionManagerTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 03C02F6A18C3106A000C6389 /* INDSequentialTextSelectionManagerTests.m */; };
+		03C02F7618C311C7000C6389 /* INDTableCellView.m in Sources */ = {isa = PBXBuildFile; fileRef = 03C02F7518C311C7000C6389 /* INDTableCellView.m */; };
+		03C02F7918C311E2000C6389 /* INDTableRowView.m in Sources */ = {isa = PBXBuildFile; fileRef = 03C02F7818C311E2000C6389 /* INDTableRowView.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -50,6 +52,10 @@
 		03C02F6618C3106A000C6389 /* INDSequentialTextSelectionManagerTests-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "INDSequentialTextSelectionManagerTests-Info.plist"; sourceTree = "<group>"; };
 		03C02F6818C3106A000C6389 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		03C02F6A18C3106A000C6389 /* INDSequentialTextSelectionManagerTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = INDSequentialTextSelectionManagerTests.m; sourceTree = "<group>"; };
+		03C02F7418C311C7000C6389 /* INDTableCellView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = INDTableCellView.h; sourceTree = "<group>"; };
+		03C02F7518C311C7000C6389 /* INDTableCellView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = INDTableCellView.m; sourceTree = "<group>"; };
+		03C02F7718C311E2000C6389 /* INDTableRowView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = INDTableRowView.h; sourceTree = "<group>"; };
+		03C02F7818C311E2000C6389 /* INDTableRowView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = INDTableRowView.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -120,6 +126,10 @@
 				03C02F5518C3106A000C6389 /* MainMenu.xib */,
 				03C02F5818C3106A000C6389 /* Images.xcassets */,
 				03C02F4718C3106A000C6389 /* Supporting Files */,
+				03C02F7418C311C7000C6389 /* INDTableCellView.h */,
+				03C02F7518C311C7000C6389 /* INDTableCellView.m */,
+				03C02F7718C311E2000C6389 /* INDTableRowView.h */,
+				03C02F7818C311E2000C6389 /* INDTableRowView.m */,
 			);
 			path = INDSequentialTextSelectionManager;
 			sourceTree = "<group>";
@@ -255,6 +265,8 @@
 			files = (
 				03C02F5418C3106A000C6389 /* INDAppDelegate.m in Sources */,
 				03C02F4D18C3106A000C6389 /* main.m in Sources */,
+				03C02F7918C311E2000C6389 /* INDTableRowView.m in Sources */,
+				03C02F7618C311C7000C6389 /* INDTableCellView.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
