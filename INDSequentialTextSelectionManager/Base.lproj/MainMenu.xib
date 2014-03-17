@@ -682,7 +682,7 @@
                                             </textFieldCell>
                                             <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                             <prototypeCellViews>
-                                                <tableCellView identifier="Cell" id="enU-vB-q15">
+                                                <tableCellView identifier="Cell" id="enU-vB-q15" customClass="INDTableCellView">
                                                     <rect key="frame" x="1" y="1" width="475" height="61"/>
                                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                                     <subviews>
@@ -724,6 +724,9 @@
                                                             </scroller>
                                                         </scrollView>
                                                     </subviews>
+                                                    <connections>
+                                                        <outlet property="textView" destination="smP-XP-w5x" id="w2A-l3-RZt"/>
+                                                    </connections>
                                                 </tableCellView>
                                             </prototypeCellViews>
                                         </tableColumn>

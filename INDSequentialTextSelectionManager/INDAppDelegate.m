@@ -9,12 +9,17 @@
 #import "INDAppDelegate.h"
 #import "INDTableCellView.h"
 #import "INDTableRowView.h"
+#import "INDSequentialTextSelectionManager.h"
+
+@interface INDAppDelegate ()
+@property (nonatomic, strong, readonly) INDSequentialTextSelectionManager *selectionManager;
+@end
 
 @implementation INDAppDelegate
 
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification
 {
-	// Insert code here to initialize your application
+	_selectionManager = [[INDSequentialTextSelectionManager alloc] init];
 }
 
 #pragma mark - NSTableViewDataSource
@@ -39,6 +44,26 @@
 - (NSTableRowView *)tableView:(NSTableView *)tableView rowViewForRow:(NSInteger)row
 {
 	return [[INDTableRowView alloc] initWithFrame:NSZeroRect];
+}
+
+- (INDTableCellView *)cellViewForRowView:(NSTableRowView *)rowView
+{
+	NSAssert([rowView isKindOfClass:INDTableRowView.class], @"Row view is not an instance of INDTableRowView");
+	INDTableCellView *cellView = [rowView viewAtColumn:0];
+	NSAssert([cellView isKindOfClass:INDTableCellView.class], @"Cell view is not an instance of INDTableCellView");
+	return cellView;
+}
+
+- (void)tableView:(NSTableView *)tableView didAddRowView:(NSTableRowView *)rowView forRow:(NSInteger)row
+{
+	INDTableCellView *cellView = [self cellViewForRowView:rowView];
+	[self.selectionManager registerTextView:cellView.textView];
+}
+
+- (void)tableView:(NSTableView *)tableView didRemoveRowView:(NSTableRowView *)rowView forRow:(NSInteger)row
+{
+	INDTableCellView *cellView = [self cellViewForRowView:rowView];
+	[self.selectionManager unregisterTextView:cellView.textView];
 }
 
 @end
