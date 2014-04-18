@@ -214,24 +214,24 @@ static void * INDUniqueIdentifierKey = &INDUniqueIdentifierKey;
 	[NSEvent addLocalMonitorForEventsMatchingMask:NSLeftMouseDraggedMask handler:^NSEvent *(NSEvent *event) {
 		if (self.currentSession == nil) return event;
 		NSTextView *textView = [self validTextViewForEvent:event];
-		if (textView != nil) {
-			NSSelectionAffinity affinity = (event.locationInWindow.y < self.currentSession.windowPoint.y) ? NSSelectionAffinityDownstream : NSSelectionAffinityUpstream;
-			self.currentSession.windowPoint = event.locationInWindow;
-
-			NSUInteger current;
-			NSString *identifier = self.currentSession.textViewIdentifier;
-			if ([textView.ind_uniqueIdentifier isEqualTo:identifier]) {
-				current = self.currentSession.characterIndex;
-			} else {
-				NSUInteger start = [self.sortedTextViews indexOfObject:self.textViews[identifier]];
-				NSUInteger end = [self.sortedTextViews indexOfObject:textView];
-				current = (end >= start) ? 0 : textView.string.length;
-			}
-			NSUInteger index = INDCharacterIndexForTextViewEvent(event, textView);
-			NSRange range = INDForwardRangeForIndices(index, current);
-			[self setSelectionRangeForTextView:textView withRange:range affinity:affinity];
-			[self processCompleteSelectionsForTargetTextView:textView affinity:affinity];
+		if (textView == nil) return nil;
+		
+		NSSelectionAffinity affinity = (event.locationInWindow.y < self.currentSession.windowPoint.y) ? NSSelectionAffinityDownstream : NSSelectionAffinityUpstream;
+		self.currentSession.windowPoint = event.locationInWindow;
+		
+		NSUInteger current;
+		NSString *identifier = self.currentSession.textViewIdentifier;
+		if ([textView.ind_uniqueIdentifier isEqualTo:identifier]) {
+			current = self.currentSession.characterIndex;
+		} else {
+			NSUInteger start = [self.sortedTextViews indexOfObject:self.textViews[identifier]];
+			NSUInteger end = [self.sortedTextViews indexOfObject:textView];
+			current = (end >= start) ? 0 : textView.string.length;
 		}
+		NSUInteger index = INDCharacterIndexForTextViewEvent(event, textView);
+		NSRange range = INDForwardRangeForIndices(index, current);
+		[self setSelectionRangeForTextView:textView withRange:range affinity:affinity];
+		[self processCompleteSelectionsForTargetTextView:textView affinity:affinity];
 		return nil;
 	}];
 }

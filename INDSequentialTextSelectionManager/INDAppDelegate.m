@@ -11,7 +11,7 @@
 #import "INDTableRowView.h"
 #import "INDSequentialTextSelectionManager.h"
 
-@interface INDAppDelegate ()
+@interface INDAppDelegate () <NSTableViewDelegate, NSTableViewDataSource>
 @property (nonatomic, strong, readonly) INDSequentialTextSelectionManager *selectionManager;
 @end
 
@@ -44,9 +44,7 @@
 
 - (NSView *)tableView:(NSTableView *)tableView viewForTableColumn:(NSTableColumn *)tableColumn row:(NSInteger)row
 {
-	INDTableCellView *cellView = [tableView makeViewWithIdentifier:@"Cell" owner:self];
-	[self.selectionManager registerTextView:cellView.textView withUniqueIdentifier:@(row).stringValue];
-	return cellView;
+	return [tableView makeViewWithIdentifier:@"Cell" owner:self];
 }
 
 - (NSTableRowView *)tableView:(NSTableView *)tableView rowViewForRow:(NSInteger)row
@@ -66,6 +64,12 @@
 {
 	INDTableCellView *cellView = [self cellViewForRowView:rowView];
 	[self.selectionManager unregisterTextView:cellView.textView];
+}
+
+- (void)tableView:(NSTableView *)tableView didAddRowView:(NSTableRowView *)rowView forRow:(NSInteger)row
+{
+	INDTableCellView *cellView = [self cellViewForRowView:rowView];
+	[self.selectionManager registerTextView:cellView.textView withUniqueIdentifier:@(row).stringValue];
 }
 
 @end
