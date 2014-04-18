@@ -9,6 +9,26 @@
 #import "INDSequentialTextSelectionManager.h"
 #import <objc/runtime.h>
 
+static NSUInteger INDCharacterIndexForTextViewEvent(NSEvent *event, NSTextView *textView)
+{
+	NSView *contentView = event.window.contentView;
+	NSPoint point = [contentView convertPoint:event.locationInWindow fromView:nil];
+	NSPoint textPoint = [textView convertPoint:point fromView:contentView];
+	return [textView characterIndexForInsertionAtPoint:textPoint];
+}
+
+static NSRange INDForwardRangeForIndices(NSUInteger idx1, NSUInteger idx2) {
+	NSRange range;
+	if (idx2 >= idx1) {
+		range = NSMakeRange(idx1, idx2 - idx1);
+	} else if (idx2 < idx1) {
+		range = NSMakeRange(idx2, idx1 - idx2);
+	} else {
+		range = NSMakeRange(NSNotFound, 0);
+	}
+	return range;
+}
+
 static void * INDUniqueIdentifierKey = &INDUniqueIdentifierKey;
 
 @interface NSTextView (INDUniqueIdentifiers)
@@ -53,7 +73,9 @@ static void * INDUniqueIdentifierKey = &INDUniqueIdentifierKey;
 @property (nonatomic, copy, readonly) NSString *textViewIdentifier;
 @property (nonatomic, assign, readonly) NSUInteger characterIndex;
 @property (nonatomic, strong, readonly) NSDictionary *selectionRanges;
+@property (nonatomic, assign) NSPoint windowPoint;
 - (void)addSelectionRange:(INDTextViewSelectionRange *)range;
+- (void)removeSelectionRangeForTextView:(NSTextView *)textView;
 @end
 
 @implementation INDTextViewSelectionSession {
@@ -61,19 +83,27 @@ static void * INDUniqueIdentifierKey = &INDUniqueIdentifierKey;
 }
 @synthesize selectionRanges = _selectionRanges;
 
-- (id)initWithTextView:(NSTextView *)textView characterIndex:(NSUInteger)index
+- (id)initWithTextView:(NSTextView *)textView event:(NSEvent *)event
 {
 	if ((self = [super init])) {
 		_textViewIdentifier = [textView.ind_uniqueIdentifier copy];
-		_characterIndex = index;
+		_characterIndex = INDCharacterIndexForTextViewEvent(event, textView);
 		_selectionRanges = [NSMutableDictionary dictionary];
+		_windowPoint = event.locationInWindow;
 	}
 	return self;
 }
 
 - (void)addSelectionRange:(INDTextViewSelectionRange *)range
 {
+	NSParameterAssert(range.textViewIdentifier);
 	_selectionRanges[range.textViewIdentifier] = range;
+}
+
+- (void)removeSelectionRangeForTextView:(NSTextView *)textView
+{
+	NSParameterAssert(textView.ind_uniqueIdentifier);
+	[_selectionRanges removeObjectForKey:textView.ind_uniqueIdentifier];
 }
 
  @end
@@ -98,29 +128,6 @@ static void * INDUniqueIdentifierKey = &INDUniqueIdentifierKey;
 	return self;
 }
 
-static NSUInteger INDCharacterIndexForTextViewEvent(NSEvent *event, NSTextView *textView)
-{
-	NSView *contentView = event.window.contentView;
-	NSPoint point = [contentView convertPoint:event.locationInWindow fromView:nil];
-	NSPoint textPoint = [textView convertPoint:point fromView:contentView];
-	return [textView characterIndexForInsertionAtPoint:textPoint];
-}
-
-static NSRange INDSelectionRangeForIndices(NSUInteger idx1, NSUInteger idx2, NSSelectionAffinity *affinity)
-{
-	if (idx1 == idx2) return NSMakeRange(NSNotFound, 0);
-	
-	NSRange range;
-	NSSelectionAffinity aff = (idx2 > idx1) ? NSSelectionAffinityDownstream : NSSelectionAffinityUpstream;
-	if (aff == NSSelectionAffinityDownstream) {
-		range = NSMakeRange(idx1, idx2 - idx1);
-	} else {
-		range = NSMakeRange(idx2, idx1 - idx2);
-	}
-	if (affinity) *affinity = aff;
-	return range;
-}
-
 - (NSTextView *)validTextViewForEvent:(NSEvent *)event
 {
 	NSView *contentView = event.window.contentView;
@@ -134,14 +141,56 @@ static NSRange INDSelectionRangeForIndices(NSUInteger idx1, NSUInteger idx2, NSS
 	return nil;
 }
 
-- (void)addSelectionRangeFromIndex:(NSUInteger)idx1 toIndex:(NSUInteger)idx2 inTextView:(NSTextView *)textView
+- (void)setSelectionRangeForTextView:(NSTextView *)textView withRange:(NSRange)range affinity:(NSSelectionAffinity)affinity
 {
-	NSSelectionAffinity affinity;
-	NSRange range = INDSelectionRangeForIndices(idx1, idx2, &affinity);
-	if (range.location != NSNotFound) {
+	if (range.location == NSNotFound || NSMaxRange(range) == 0) {
+		textView.selectedRange = NSMakeRange(0, 0);
+		[self.currentSession removeSelectionRangeForTextView:textView];
+	} else {
 		INDTextViewSelectionRange *selRange = [[INDTextViewSelectionRange alloc] initWithTextView:textView selectedRange:range];
 		[self.currentSession addSelectionRange:selRange];
 		[textView setSelectedRange:range affinity:affinity stillSelecting:YES];
+	}
+}
+
+- (void)processCompleteSelectionsForTargetTextView:(NSTextView *)textView affinity:(NSSelectionAffinity)affinity
+{
+	if (self.currentSession == nil) return;
+	
+	NSTextView *startingView = self.textViews[self.currentSession.textViewIdentifier];
+	NSUInteger start = [self.sortedTextViews indexOfObject:startingView];
+	NSUInteger end = [self.sortedTextViews indexOfObject:textView];
+	if (start == NSNotFound || end == NSNotFound) return;
+	
+	NSRange subrange = NSMakeRange(NSNotFound, 0);
+	BOOL select = NO;
+	NSUInteger count = self.sortedTextViews.count;
+	if (end > start) {
+		if (affinity == NSSelectionAffinityDownstream) {
+			subrange = NSMakeRange(start, end - start);
+			select = YES;
+		} else if (count > end + 1) {
+			subrange = NSMakeRange(end + 1, count - end - 1);
+		}
+	} else if (end < start) {
+		if (affinity == NSSelectionAffinityUpstream) {
+			subrange = NSMakeRange(end + 1, start - end);
+			select = YES;
+		} else {
+			subrange = NSMakeRange(0, end);
+		}
+	}
+	NSArray *subarray = nil;
+	if (subrange.location == NSNotFound) {
+		NSMutableOrderedSet *views = [self.sortedTextViews mutableCopy];
+		[views removeObject:textView];
+		subarray = views.array;
+	} else {
+		subarray = [self.sortedTextViews.array subarrayWithRange:subrange];
+	}
+	for (NSTextView *textView in subarray) {
+		NSRange range = NSMakeRange(0, select ? textView.string.length : 0);
+		[self setSelectionRangeForTextView:textView withRange:range affinity:affinity];
 	}
 }
 
@@ -159,17 +208,29 @@ static NSRange INDSelectionRangeForIndices(NSUInteger idx1, NSUInteger idx2, NSS
 		NSTextView *textView = [self validTextViewForEvent:event];
 		if (textView == nil) return event;
 		[self endSession];
-		NSUInteger index = INDCharacterIndexForTextViewEvent(event, textView);
-		self.currentSession = [[INDTextViewSelectionSession alloc] initWithTextView:textView characterIndex:index];
+		self.currentSession = [[INDTextViewSelectionSession alloc] initWithTextView:textView event:event];
 		return nil;
 	}];
 	[NSEvent addLocalMonitorForEventsMatchingMask:NSLeftMouseDraggedMask handler:^NSEvent *(NSEvent *event) {
 		if (self.currentSession == nil) return event;
 		NSTextView *textView = [self validTextViewForEvent:event];
 		if (textView != nil) {
+			NSSelectionAffinity affinity = (event.locationInWindow.y < self.currentSession.windowPoint.y) ? NSSelectionAffinityDownstream : NSSelectionAffinityUpstream;
+			self.currentSession.windowPoint = event.locationInWindow;
+
+			NSUInteger current;
+			NSString *identifier = self.currentSession.textViewIdentifier;
+			if ([textView.ind_uniqueIdentifier isEqualTo:identifier]) {
+				current = self.currentSession.characterIndex;
+			} else {
+				NSUInteger start = [self.sortedTextViews indexOfObject:self.textViews[identifier]];
+				NSUInteger end = [self.sortedTextViews indexOfObject:textView];
+				current = (end >= start) ? 0 : textView.string.length;
+			}
 			NSUInteger index = INDCharacterIndexForTextViewEvent(event, textView);
-			NSUInteger current = self.currentSession.characterIndex;
-			[self addSelectionRangeFromIndex:index toIndex:current inTextView:textView];
+			NSRange range = INDForwardRangeForIndices(index, current);
+			[self setSelectionRangeForTextView:textView withRange:range affinity:affinity];
+			[self processCompleteSelectionsForTargetTextView:textView affinity:affinity];
 		}
 		return nil;
 	}];
