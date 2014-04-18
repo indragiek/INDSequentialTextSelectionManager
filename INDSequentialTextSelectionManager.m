@@ -80,6 +80,7 @@ static void * INDUniqueIdentifierKey = &INDUniqueIdentifierKey;
 
 @interface INDSequentialTextSelectionManager ()
 @property (nonatomic, strong, readonly) NSMutableDictionary *textViews;
+@property (nonatomic, strong, readonly) NSMutableOrderedSet *sortedTextViews;
 @property (nonatomic, strong) INDTextViewSelectionSession *currentSession;
 @end
 
@@ -91,6 +92,7 @@ static void * INDUniqueIdentifierKey = &INDUniqueIdentifierKey;
 {
 	if ((self = [super init])) {
 		_textViews = [NSMutableDictionary dictionary];
+		_sortedTextViews = [NSMutableOrderedSet orderedSet];
 		[self addLocalEventMonitor];
 	}
 	return self;
@@ -147,8 +149,8 @@ static NSRange INDSelectionRangeForIndices(NSUInteger idx1, NSUInteger idx2, NSS
 {
 	for (NSTextView *textView in self.textViews.allValues) {
 		textView.selectedRange = NSMakeRange(0, 0);
-		self.currentSession = nil;
 	}
+	self.currentSession = nil;
 }
 
 - (void)addLocalEventMonitor
@@ -183,18 +185,43 @@ static NSRange INDSelectionRangeForIndices(NSUInteger idx1, NSUInteger idx2, NSS
 	[self unregisterTextView:textView];
 	textView.ind_uniqueIdentifier = identifier;
 	self.textViews[identifier] = textView;
+	
+	[self.sortedTextViews addObject:textView];
+	[self sortTextViews];
+}
+
+- (void)sortTextViews
+{
+	[self.sortedTextViews sortUsingComparator:^NSComparisonResult(NSTextView *obj1, NSTextView *obj2) {
+		// Convert to window coordinates to normalize coordinate flipped-ness
+		NSRect frame1 = [obj1 convertRect:obj1.bounds toView:nil];
+		NSRect frame2 = [obj2 convertRect:obj2.bounds toView:nil];
+		
+		CGFloat y1 = NSMinY(frame1);
+		CGFloat y2 = NSMinY(frame2);
+		
+		if (y1 > y2) {
+			return NSOrderedAscending;
+		} else if (y1 < y2) {
+			return NSOrderedDescending;
+		} else {
+			return NSOrderedSame;
+		}
+	}];
 }
 
 - (void)unregisterTextView:(NSTextView *)textView
 {
-	if (textView.ind_uniqueIdentifier) {
-		[self.textViews removeObjectForKey:textView.ind_uniqueIdentifier];
-	}
+	if (textView.ind_uniqueIdentifier == nil) return;
+	[self.textViews removeObjectForKey:textView.ind_uniqueIdentifier];
+	[self.sortedTextViews removeObject:textView];
+	[self sortTextViews];
 }
 
 - (void)unregisterAllTextViews
 {
 	[self.textViews removeAllObjects];
+	[self.sortedTextViews removeAllObjects];
 }
 
 @end
