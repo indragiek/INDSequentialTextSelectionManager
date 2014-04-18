@@ -14,11 +14,13 @@
 @interface INDSequentialTextSelectionManager : NSObject
 
 /**
- *  Registers a text view for sequential text selection.
+ *  Registers a text view to participate in sequential selection.
  *
- *  @param textView The text view to register.
+ *  @param textView   The `NSTextView` instance to register.
+ *  @param identifier The unique identifier to associate with the text view instance,
+ *  used for restoring text view state.
  */
-- (void)registerTextView:(NSTextView *)textView;
+- (void)registerTextView:(NSTextView *)textView withUniqueIdentifier:(NSString *)identifier;
 
 /**
  *  Unregisters a text view for sequential text selection.

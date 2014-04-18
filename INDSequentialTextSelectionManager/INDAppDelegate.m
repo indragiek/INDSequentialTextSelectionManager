@@ -15,11 +15,17 @@
 @property (nonatomic, strong, readonly) INDSequentialTextSelectionManager *selectionManager;
 @end
 
-@implementation INDAppDelegate
+@implementation INDAppDelegate {
+	BOOL _awokenFromNib;
+}
 
-- (void)applicationDidFinishLaunching:(NSNotification *)aNotification
+- (void)awakeFromNib
 {
-	_selectionManager = [[INDSequentialTextSelectionManager alloc] init];
+	[super awakeFromNib];
+	if (!_awokenFromNib) {
+		_selectionManager = [[INDSequentialTextSelectionManager alloc] init];
+		_awokenFromNib = YES;
+	}
 }
 
 #pragma mark - NSTableViewDataSource
@@ -38,7 +44,9 @@
 
 - (NSView *)tableView:(NSTableView *)tableView viewForTableColumn:(NSTableColumn *)tableColumn row:(NSInteger)row
 {
-	return [tableView makeViewWithIdentifier:@"Cell" owner:self];
+	INDTableCellView *cellView = [tableView makeViewWithIdentifier:@"Cell" owner:self];
+	[self.selectionManager registerTextView:cellView.textView withUniqueIdentifier:@(row).stringValue];
+	return cellView;
 }
 
 - (NSTableRowView *)tableView:(NSTableView *)tableView rowViewForRow:(NSInteger)row
@@ -52,12 +60,6 @@
 	INDTableCellView *cellView = [rowView viewAtColumn:0];
 	NSAssert([cellView isKindOfClass:INDTableCellView.class], @"Cell view is not an instance of INDTableCellView");
 	return cellView;
-}
-
-- (void)tableView:(NSTableView *)tableView didAddRowView:(NSTableRowView *)rowView forRow:(NSInteger)row
-{
-	INDTableCellView *cellView = [self cellViewForRowView:rowView];
-	[self.selectionManager registerTextView:cellView.textView];
 }
 
 - (void)tableView:(NSTableView *)tableView didRemoveRowView:(NSTableRowView *)rowView forRow:(NSInteger)row
