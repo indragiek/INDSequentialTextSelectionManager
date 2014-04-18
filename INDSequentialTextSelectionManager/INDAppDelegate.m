@@ -72,4 +72,9 @@
 	[self.selectionManager registerTextView:cellView.textView withUniqueIdentifier:@(row).stringValue];
 }
 
+- (BOOL)tableView:(NSTableView *)aTableView shouldSelectRow:(NSInteger)rowIndex
+{
+	return NO;
+}
+
 @end
