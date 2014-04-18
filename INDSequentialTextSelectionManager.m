@@ -205,8 +205,12 @@ static void * INDUniqueIdentifierKey = &INDUniqueIdentifierKey;
 - (void)addLocalEventMonitor
 {
 	[NSEvent addLocalMonitorForEventsMatchingMask:NSLeftMouseDownMask handler:^NSEvent *(NSEvent *event) {
+		// Allow for correct handling of double clicks on text views.
+		if (event.clickCount > 1) return event;
+		
 		NSTextView *textView = [self validTextViewForEvent:event];
 		if (textView == nil) return event;
+		
 		[self endSession];
 		self.currentSession = [[INDTextViewSelectionSession alloc] initWithTextView:textView event:event];
 		return nil;
