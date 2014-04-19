@@ -339,14 +339,32 @@ static void * INDBackgroundColorRangesKey = &INDBackgroundColorRangesKey;
 
 #pragma mark - NSResponder
 
+- (NSAttributedString *)cachedAttributedText
+{
+	if (_cachedAttributedText == nil) {
+		_cachedAttributedText = [self buildAttributedStringForCurrentSession];
+	}
+	return _cachedAttributedText;
+}
+
 - (void)copy:(id)sender
 {
-	if (self.cachedAttributedText == nil) {
-		self.cachedAttributedText = [self buildAttributedStringForCurrentSession];
-	}
 	NSPasteboard *pboard = NSPasteboard.generalPasteboard;
 	[pboard clearContents];
 	[pboard writeObjects:@[self.cachedAttributedText]];
+}
+
+- (NSMenu *)buildSharingMenu
+{
+	NSMenu *shareMenu = [[NSMenu alloc] initWithTitle:NSLocalizedString(@"Share", nil)];
+	NSArray *services = [NSSharingService sharingServicesForItems:@[self.cachedAttributedText]];
+	for (NSSharingService *service in services) {
+		NSMenuItem *item = [shareMenu addItemWithTitle:service.title action:@selector(share:) keyEquivalent:@""];
+		item.target = self;
+		item.image = service.image;
+		item.representedObject = service;
+	}
+	return shareMenu;
 }
 
 - (NSMenu *)menuForEvent:(NSEvent *)theEvent
@@ -354,8 +372,18 @@ static void * INDBackgroundColorRangesKey = &INDBackgroundColorRangesKey;
 	NSMenu *menu = [[NSMenu alloc] initWithTitle:NSLocalizedString(@"Text Actions", nil)];
 	NSMenuItem *copy = [menu addItemWithTitle:NSLocalizedString(@"Copy", nil) action:@selector(copy:) keyEquivalent:@""];
 	copy.target = self;
+	[menu addItem:NSMenuItem.separatorItem];
+	
+	NSMenuItem *share = [menu addItemWithTitle:NSLocalizedString(@"Share", nil) action:nil keyEquivalent:@""];
+	share.submenu = [self buildSharingMenu];
 	
 	return menu;
+}
+
+- (void)share:(NSMenuItem *)item
+{
+	NSSharingService *service = item.representedObject;
+	[service performWithItems:@[self.cachedAttributedText]];
 }
 
 #pragma mark - Selection
@@ -430,6 +458,7 @@ static void * INDBackgroundColorRangesKey = &INDBackgroundColorRangesKey;
 		[textView ind_restoreBackgroundColorState];
 	}
 	self.currentSession = nil;
+	self.cachedAttributedText = nil;
 }
 
 #pragma mark - Text
