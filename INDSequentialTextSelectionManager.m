@@ -52,7 +52,7 @@ static void * INDUniqueIdentifierKey = &INDUniqueIdentifierKey;
 @interface INDTextViewSelectionRange : NSObject
 @property (nonatomic, copy, readonly) NSString *textViewIdentifier;
 @property (nonatomic, assign, readonly) NSRange range;
-@property (nonatomic, copy, readonly) NSAttributedString *text;
+@property (nonatomic, copy, readonly) NSAttributedString *attributedText;
 @end
 
 @implementation INDTextViewSelectionRange
@@ -62,7 +62,7 @@ static void * INDUniqueIdentifierKey = &INDUniqueIdentifierKey;
 	if ((self = [super init])) {
 		_textViewIdentifier = [textView.ind_uniqueIdentifier copy];
 		_range = range;
-		_text = [textView.attributedString attributedSubstringFromRange:range];
+		_attributedText = [[textView.attributedString attributedSubstringFromRange:range] copy];
 	}
 	return self;
 }
@@ -238,6 +238,37 @@ static void * INDUniqueIdentifierKey = &INDUniqueIdentifierKey;
 		[self processCompleteSelectionsForTargetTextView:textView affinity:affinity];
 		return nil;
 	}];
+	[NSEvent addLocalMonitorForEventsMatchingMask:NSLeftMouseUpMask handler:^NSEvent *(NSEvent *event) {
+		NSLog(@"%@", [self buildAttributedStringForCurrentSession]);
+		return event;
+	}];
+}
+
+#pragma mark - Text
+
+- (NSAttributedString *)buildAttributedStringForCurrentSession
+{
+	if (self.currentSession == nil) return nil;
+	
+	NSDictionary *ranges = self.currentSession.selectionRanges;
+	NSMutableArray *keys = [ranges.allKeys mutableCopy];
+	NSComparator textViewComparator = self.textViewComparator;
+	[keys sortUsingComparator:^NSComparisonResult(NSString *obj1, NSString *obj2) {
+		return textViewComparator(self.textViews[obj1], self.textViews[obj2]);
+	}];
+	NSMutableAttributedString *string = [[NSMutableAttributedString alloc] init];
+	[string beginEditing];
+	[keys enumerateObjectsUsingBlock:^(NSString *key, NSUInteger idx, BOOL *stop) {
+		INDTextViewSelectionRange *range = ranges[key];
+		[string appendAttributedString:range.attributedText];
+		NSDictionary *attributes = [string attributesAtIndex:string.length - 1 effectiveRange:NULL];
+		NSAttributedString *newline = [[NSAttributedString alloc] initWithString:@"\n" attributes:attributes];
+		if (idx != keys.count - 1) {
+			[string appendAttributedString:newline];
+		}
+	}];
+	[string endEditing];
+	return string;
 }
 
 #pragma mark - Registration
@@ -255,9 +286,9 @@ static void * INDUniqueIdentifierKey = &INDUniqueIdentifierKey;
 	[self sortTextViews];
 }
 
-- (void)sortTextViews
+- (NSComparator)textViewComparator
 {
-	[self.sortedTextViews sortUsingComparator:^NSComparisonResult(NSTextView *obj1, NSTextView *obj2) {
+	return ^NSComparisonResult(NSTextView *obj1, NSTextView *obj2) {
 		// Convert to window coordinates to normalize coordinate flipped-ness
 		NSRect frame1 = [obj1 convertRect:obj1.bounds toView:nil];
 		NSRect frame2 = [obj2 convertRect:obj2.bounds toView:nil];
@@ -272,7 +303,12 @@ static void * INDUniqueIdentifierKey = &INDUniqueIdentifierKey;
 		} else {
 			return NSOrderedSame;
 		}
-	}];
+	};
+}
+
+- (void)sortTextViews
+{
+	[self.sortedTextViews sortUsingComparator:self.textViewComparator];
 }
 
 - (void)unregisterTextView:(NSTextView *)textView
