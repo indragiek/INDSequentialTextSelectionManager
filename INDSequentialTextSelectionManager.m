@@ -344,7 +344,7 @@ static void * INDBackgroundColorRangesKey = &INDBackgroundColorRangesKey;
 	if ([view isKindOfClass:NSTextView.class]) {
 		NSTextView *textView = (NSTextView *)view;
 		NSString *identifier = textView.ind_uniqueIdentifier;
-		return (identifier && self.textViews[identifier]) ? textView : nil;
+		return (textView.isSelectable && identifier && self.textViews[identifier]) ? textView : nil;
 	}
 	return nil;
 }
