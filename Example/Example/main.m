@@ -1,8 +1,8 @@
 //
 //  main.m
-//  INDSequentialTextSelectionManager
+//  Example
 //
-//  Created by Indragie Karunaratne on 2014-03-02.
+//  Created by Indragie Karunaratne on 2014-04-18.
 //  Copyright (c) 2014 Indragie Karunaratne. All rights reserved.
 //
 
