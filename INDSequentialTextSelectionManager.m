@@ -261,9 +261,9 @@ static void * INDUniqueIdentifierKey = &INDUniqueIdentifierKey;
 	[keys enumerateObjectsUsingBlock:^(NSString *key, NSUInteger idx, BOOL *stop) {
 		INDTextViewSelectionRange *range = ranges[key];
 		[string appendAttributedString:range.attributedText];
-		NSDictionary *attributes = [string attributesAtIndex:string.length - 1 effectiveRange:NULL];
-		NSAttributedString *newline = [[NSAttributedString alloc] initWithString:@"\n" attributes:attributes];
 		if (idx != keys.count - 1) {
+			NSDictionary *attributes = [string attributesAtIndex:string.length - 1 effectiveRange:NULL];
+			NSAttributedString *newline = [[NSAttributedString alloc] initWithString:@"\n" attributes:attributes];
 			[string appendAttributedString:newline];
 		}
 	}];
