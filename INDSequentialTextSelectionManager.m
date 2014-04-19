@@ -262,7 +262,7 @@ static void * INDOverrideAttributedTextKey = &INDOverrideAttributedTextKey;
 @property (nonatomic, strong, readonly) NSMutableDictionary *textViews;
 @property (nonatomic, strong, readonly) NSMutableOrderedSet *sortedTextViews;
 @property (nonatomic, strong) INDTextViewSelectionSession *currentSession;
-@property (nonatomic, strong, readonly) NSTextView *menuTextView;
+@property (nonatomic, strong) NSAttributedString *cachedAttributedText;
 @end
 
 @implementation INDSequentialTextSelectionManager
@@ -274,8 +274,7 @@ static void * INDOverrideAttributedTextKey = &INDOverrideAttributedTextKey;
 	if ((self = [super init])) {
 		_textViews = [NSMutableDictionary dictionary];
 		_sortedTextViews = [NSMutableOrderedSet orderedSet];
-		
-		[self addLocalEventMonitors];
+		[self addLocalEventMonitor];
 	}
 	return self;
 }
@@ -334,16 +333,28 @@ static void * INDOverrideAttributedTextKey = &INDOverrideAttributedTextKey;
 	return NO;
 }
 
-- (void)addLocalEventMonitors
+- (BOOL)handleLeftMouseUp:(NSEvent *)event
 {
-	[NSEvent addLocalMonitorForEventsMatchingMask:NSLeftMouseDownMask handler:^NSEvent *(NSEvent *event) {
-		return [self handleLeftMouseDown:event] ? nil : event;
-	}];
-	[NSEvent addLocalMonitorForEventsMatchingMask:NSLeftMouseDraggedMask handler:^NSEvent *(NSEvent *event) {
-		return [self handleLeftMouseDragged:event] ? nil : event;
-	}];
-	[NSEvent addLocalMonitorForEventsMatchingMask:NSRightMouseDownMask handler:^NSEvent *(NSEvent *event) {
-		return [self handleRightMouseDown:event] ? nil : event;
+	if (self.currentSession == nil) return NO;
+	[event.window makeFirstResponder:self];
+	return YES;
+}
+
+- (void)addLocalEventMonitor
+{
+	[NSEvent addLocalMonitorForEventsMatchingMask:NSLeftMouseDownMask | NSLeftMouseDraggedMask | NSLeftMouseUpMask | NSRightMouseDownMask handler:^NSEvent *(NSEvent *event) {
+		switch (event.type) {
+			case NSLeftMouseDown:
+				return [self handleLeftMouseDown:event] ? nil : event;
+			case NSLeftMouseDragged:
+				return [self handleLeftMouseDragged:event] ? nil : event;
+			case NSLeftMouseUp:
+				return [self handleLeftMouseUp:event] ? nil : event;
+			case NSRightMouseDown:
+				return [self handleRightMouseDown:event] ? nil : event;
+			default:
+				return event;
+		}
 	}];
 }
 
@@ -360,6 +371,17 @@ static void * INDOverrideAttributedTextKey = &INDOverrideAttributedTextKey;
 	return nil;
 }
 
+#pragma mark - NSResponder
+
+- (void)copy:(id)sender
+{
+	if (self.cachedAttributedText == nil) {
+		self.cachedAttributedText = [self buildAttributedStringForCurrentSession];
+	}
+	NSPasteboard *pboard = NSPasteboard.generalPasteboard;
+	[pboard clearContents];
+	[pboard writeObjects:@[self.cachedAttributedText]];
+}
 #pragma mark - Selection
 
 - (void)setSelectionRangeForTextView:(NSTextView *)textView withRange:(NSRange)range affinity:(NSSelectionAffinity)affinity

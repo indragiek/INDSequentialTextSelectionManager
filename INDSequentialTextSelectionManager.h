@@ -11,7 +11,7 @@
 /**
  *  Coordinates sequential text selection among an arbitrary set of `NSTextView`s
  */
-@interface INDSequentialTextSelectionManager : NSObject
+@interface INDSequentialTextSelectionManager : NSResponder
 
 /**
  *  Registers a text view to participate in sequential selection.
