@@ -29,6 +29,17 @@ static NSRange INDForwardRangeForIndices(NSUInteger idx1, NSUInteger idx2) {
 	return range;
 }
 
+static void INDSwizzle(Class c, SEL orig, SEL new)
+{
+    Method origMethod = class_getInstanceMethod(c, orig);
+    Method newMethod = class_getInstanceMethod(c, new);
+    if (class_addMethod(c, orig, method_getImplementation(newMethod), method_getTypeEncoding(newMethod))) {
+        class_replaceMethod(c, new, method_getImplementation(origMethod), method_getTypeEncoding(origMethod));
+    } else {
+        method_exchangeImplementations(origMethod, newMethod);
+    }
+}
+
 static void * INDUniqueIdentifierKey = &INDUniqueIdentifierKey;
 
 @interface NSTextView (INDUniqueIdentifiers)
@@ -45,6 +56,50 @@ static void * INDUniqueIdentifierKey = &INDUniqueIdentifierKey;
 - (NSString *)ind_uniqueIdentifier
 {
 	return objc_getAssociatedObject(self, INDUniqueIdentifierKey);
+}
+
+@end
+
+static void * INDOverrideAttributedTextKey = &INDOverrideAttributedTextKey;
+
+@interface NSTextView (INDPasteboard)
+@property (nonatomic, copy) NSAttributedString *ind_overrideAttributedText;
+@end
+
+@implementation NSTextView (INDPasteboard)
+
++ (void)load
+{
+	INDSwizzle(self, @selector(writeSelectionToPasteboard:type:), @selector(ind_writeSelectionToPasteboard:type:));
+}
+
+- (BOOL)ind_writeSelectionToPasteboard:(NSPasteboard *)pboard type:(NSString *)type
+{
+	if (self.ind_overrideAttributedText == nil) {
+		return [self ind_writeSelectionToPasteboard:pboard type:type];
+	}
+	if ([type isEqualToString:NSRTFPboardType]) {
+		NSData *RTFData = [self.ind_overrideAttributedText RTFFromRange:NSMakeRange(0, self.ind_overrideAttributedText.length) documentAttributes:nil];
+		[pboard setData:RTFData forType:type];
+	} else if ([type isEqualToString:NSRTFDPboardType]) {
+		NSData *RTFDData = [self.ind_overrideAttributedText RTFDFromRange:NSMakeRange(0, self.ind_overrideAttributedText.length) documentAttributes:nil];
+		[pboard setData:RTFDData forType:type];
+	} else if ([type isEqualToString:NSStringPboardType]) {
+		[pboard setString:self.ind_overrideAttributedText.string forType:type];
+	} else {
+		return [self ind_writeSelectionToPasteboard:pboard type:type];
+	}
+	return YES;
+}
+
+- (void)setInd_overrideAttributedText:(NSAttributedString *)ind_overrideAttributedText
+{
+	objc_setAssociatedObject(self, INDOverrideAttributedTextKey, ind_overrideAttributedText, OBJC_ASSOCIATION_COPY_NONATOMIC);
+}
+
+- (NSAttributedString *)ind_overrideAttributedText
+{
+	return objc_getAssociatedObject(self, INDOverrideAttributedTextKey);
 }
 
 @end
@@ -106,12 +161,13 @@ static void * INDUniqueIdentifierKey = &INDUniqueIdentifierKey;
 	[_selectionRanges removeObjectForKey:textView.ind_uniqueIdentifier];
 }
 
- @end
+@end
 
 @interface INDSequentialTextSelectionManager ()
 @property (nonatomic, strong, readonly) NSMutableDictionary *textViews;
 @property (nonatomic, strong, readonly) NSMutableOrderedSet *sortedTextViews;
 @property (nonatomic, strong) INDTextViewSelectionSession *currentSession;
+@property (nonatomic, strong, readonly) NSTextView *menuTextView;
 @end
 
 @implementation INDSequentialTextSelectionManager
@@ -123,9 +179,76 @@ static void * INDUniqueIdentifierKey = &INDUniqueIdentifierKey;
 	if ((self = [super init])) {
 		_textViews = [NSMutableDictionary dictionary];
 		_sortedTextViews = [NSMutableOrderedSet orderedSet];
-		[self addLocalEventMonitor];
+		
+		[self addLocalEventMonitors];
 	}
 	return self;
+}
+
+#pragma mark - Events
+
+- (BOOL)handleLeftMouseDown:(NSEvent *)event
+{
+	// Allow for correct handling of double clicks on text views.
+	if (event.clickCount > 1) return NO;
+	
+	NSTextView *textView = [self validTextViewForEvent:event];
+	
+	// Ignore if the text view is not "owned" by this manager, or if it is being
+	// edited at the time of this event.
+	if (textView == nil || textView.window.firstResponder == textView) return NO;
+	
+	[self endSession];
+	self.currentSession = [[INDTextViewSelectionSession alloc] initWithTextView:textView event:event];
+	return YES;
+}
+
+- (BOOL)handleLeftMouseDragged:(NSEvent *)event
+{
+	if (self.currentSession == nil) return NO;
+	NSTextView *textView = [self validTextViewForEvent:event];
+	if (textView == nil) return YES;
+	
+	NSSelectionAffinity affinity = (event.locationInWindow.y < self.currentSession.windowPoint.y) ? NSSelectionAffinityDownstream : NSSelectionAffinityUpstream;
+	self.currentSession.windowPoint = event.locationInWindow;
+	
+	NSUInteger current;
+	NSString *identifier = self.currentSession.textViewIdentifier;
+	if ([textView.ind_uniqueIdentifier isEqualTo:identifier]) {
+		current = self.currentSession.characterIndex;
+	} else {
+		NSUInteger start = [self.sortedTextViews indexOfObject:self.textViews[identifier]];
+		NSUInteger end = [self.sortedTextViews indexOfObject:textView];
+		current = (end >= start) ? 0 : textView.string.length;
+	}
+	NSUInteger index = INDCharacterIndexForTextViewEvent(event, textView);
+	NSRange range = INDForwardRangeForIndices(index, current);
+	[self setSelectionRangeForTextView:textView withRange:range affinity:affinity];
+	[self processCompleteSelectionsForTargetTextView:textView affinity:affinity];
+	return YES;
+}
+
+- (BOOL)handleRightMouseDown:(NSEvent *)event
+{
+	if (self.currentSession == nil) return NO;
+	NSTextView *textView = [self validTextViewForEvent:event];
+	if (textView != nil) {
+		textView.ind_overrideAttributedText = [self buildAttributedStringForCurrentSession];
+	}
+	return NO;
+}
+
+- (void)addLocalEventMonitors
+{
+	[NSEvent addLocalMonitorForEventsMatchingMask:NSLeftMouseDownMask handler:^NSEvent *(NSEvent *event) {
+		return [self handleLeftMouseDown:event] ? nil : event;
+	}];
+	[NSEvent addLocalMonitorForEventsMatchingMask:NSLeftMouseDraggedMask handler:^NSEvent *(NSEvent *event) {
+		return [self handleLeftMouseDragged:event] ? nil : event;
+	}];
+	[NSEvent addLocalMonitorForEventsMatchingMask:NSRightMouseDownMask handler:^NSEvent *(NSEvent *event) {
+		return [self handleRightMouseDown:event] ? nil : event;
+	}];
 }
 
 - (NSTextView *)validTextViewForEvent:(NSEvent *)event
@@ -140,6 +263,8 @@ static void * INDUniqueIdentifierKey = &INDUniqueIdentifierKey;
 	}
 	return nil;
 }
+
+#pragma mark - Selection
 
 - (void)setSelectionRangeForTextView:(NSTextView *)textView withRange:(NSRange)range affinity:(NSSelectionAffinity)affinity
 {
@@ -210,51 +335,6 @@ static void * INDUniqueIdentifierKey = &INDUniqueIdentifierKey;
 		textView.selectedRange = NSMakeRange(0, 0);
 	}
 	self.currentSession = nil;
-}
-
-- (void)addLocalEventMonitor
-{
-	[NSEvent addLocalMonitorForEventsMatchingMask:NSLeftMouseDownMask handler:^NSEvent *(NSEvent *event) {
-		// Allow for correct handling of double clicks on text views.
-		if (event.clickCount > 1) return event;
-		
-		NSTextView *textView = [self validTextViewForEvent:event];
-		
-		// Ignore if the text view is not "owned" by this manager, or if it is being
-		// edited at the time of this event.
-		if (textView == nil || textView.window.firstResponder == textView) return event;
-		
-		[self endSession];
-		self.currentSession = [[INDTextViewSelectionSession alloc] initWithTextView:textView event:event];
-		return nil;
-	}];
-	[NSEvent addLocalMonitorForEventsMatchingMask:NSLeftMouseDraggedMask handler:^NSEvent *(NSEvent *event) {
-		if (self.currentSession == nil) return event;
-		NSTextView *textView = [self validTextViewForEvent:event];
-		if (textView == nil) return nil;
-		
-		NSSelectionAffinity affinity = (event.locationInWindow.y < self.currentSession.windowPoint.y) ? NSSelectionAffinityDownstream : NSSelectionAffinityUpstream;
-		self.currentSession.windowPoint = event.locationInWindow;
-		
-		NSUInteger current;
-		NSString *identifier = self.currentSession.textViewIdentifier;
-		if ([textView.ind_uniqueIdentifier isEqualTo:identifier]) {
-			current = self.currentSession.characterIndex;
-		} else {
-			NSUInteger start = [self.sortedTextViews indexOfObject:self.textViews[identifier]];
-			NSUInteger end = [self.sortedTextViews indexOfObject:textView];
-			current = (end >= start) ? 0 : textView.string.length;
-		}
-		NSUInteger index = INDCharacterIndexForTextViewEvent(event, textView);
-		NSRange range = INDForwardRangeForIndices(index, current);
-		[self setSelectionRangeForTextView:textView withRange:range affinity:affinity];
-		[self processCompleteSelectionsForTargetTextView:textView affinity:affinity];
-		return nil;
-	}];
-	[NSEvent addLocalMonitorForEventsMatchingMask:NSLeftMouseUpMask handler:^NSEvent *(NSEvent *event) {
-		NSLog(@"%@", [self buildAttributedStringForCurrentSession]);
-		return event;
-	}];
 }
 
 #pragma mark - Text
