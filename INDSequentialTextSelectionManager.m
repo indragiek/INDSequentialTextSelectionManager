@@ -155,50 +155,6 @@ static void * INDBackgroundColorRangesKey = &INDBackgroundColorRangesKey;
 
 @end
 
-static void * INDOverrideAttributedTextKey = &INDOverrideAttributedTextKey;
-
-@interface NSTextView (INDPasteboard)
-@property (nonatomic, copy) NSAttributedString *ind_overrideAttributedText;
-@end
-
-@implementation NSTextView (INDPasteboard)
-
-+ (void)load
-{
-	INDSwizzle(self, @selector(writeSelectionToPasteboard:type:), @selector(ind_writeSelectionToPasteboard:type:));
-}
-
-- (BOOL)ind_writeSelectionToPasteboard:(NSPasteboard *)pboard type:(NSString *)type
-{
-	if (self.ind_overrideAttributedText == nil) {
-		return [self ind_writeSelectionToPasteboard:pboard type:type];
-	}
-	if ([type isEqualToString:NSRTFPboardType]) {
-		NSData *RTFData = [self.ind_overrideAttributedText RTFFromRange:NSMakeRange(0, self.ind_overrideAttributedText.length) documentAttributes:nil];
-		[pboard setData:RTFData forType:type];
-	} else if ([type isEqualToString:NSRTFDPboardType]) {
-		NSData *RTFDData = [self.ind_overrideAttributedText RTFDFromRange:NSMakeRange(0, self.ind_overrideAttributedText.length) documentAttributes:nil];
-		[pboard setData:RTFDData forType:type];
-	} else if ([type isEqualToString:NSStringPboardType]) {
-		[pboard setString:self.ind_overrideAttributedText.string forType:type];
-	} else {
-		return [self ind_writeSelectionToPasteboard:pboard type:type];
-	}
-	return YES;
-}
-
-- (void)setInd_overrideAttributedText:(NSAttributedString *)ind_overrideAttributedText
-{
-	objc_setAssociatedObject(self, INDOverrideAttributedTextKey, ind_overrideAttributedText, OBJC_ASSOCIATION_COPY_NONATOMIC);
-}
-
-- (NSAttributedString *)ind_overrideAttributedText
-{
-	return objc_getAssociatedObject(self, INDOverrideAttributedTextKey);
-}
-
-@end
-
 @interface INDTextViewSelectionRange : NSObject
 @property (nonatomic, copy, readonly) NSString *textViewIdentifier;
 @property (nonatomic, assign, readonly) NSRange range;
@@ -327,10 +283,12 @@ static void * INDOverrideAttributedTextKey = &INDOverrideAttributedTextKey;
 {
 	if (self.currentSession == nil) return NO;
 	NSTextView *textView = [self validTextViewForEvent:event];
-	if (textView != nil) {
-		textView.ind_overrideAttributedText = [self buildAttributedStringForCurrentSession];
-	}
-	return NO;
+	if (textView == nil) return YES;
+	
+	NSMenu *menu = [self menuForEvent:event];
+	[NSMenu popUpContextMenu:menu withEvent:event forView:textView];
+	
+	return YES;
 }
 
 - (BOOL)handleLeftMouseUp:(NSEvent *)event
@@ -382,6 +340,16 @@ static void * INDOverrideAttributedTextKey = &INDOverrideAttributedTextKey;
 	[pboard clearContents];
 	[pboard writeObjects:@[self.cachedAttributedText]];
 }
+
+- (NSMenu *)menuForEvent:(NSEvent *)theEvent
+{
+	NSMenu *menu = [[NSMenu alloc] initWithTitle:NSLocalizedString(@"Text Actions", nil)];
+	NSMenuItem *copy = [menu addItemWithTitle:NSLocalizedString(@"Copy", nil) action:@selector(copy:) keyEquivalent:@""];
+	copy.target = self;
+	
+	return menu;
+}
+
 #pragma mark - Selection
 
 - (void)setSelectionRangeForTextView:(NSTextView *)textView withRange:(NSRange)range affinity:(NSSelectionAffinity)affinity
