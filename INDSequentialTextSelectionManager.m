@@ -493,6 +493,12 @@ static void * INDOverrideAttributedTextKey = &INDOverrideAttributedTextKey;
 	[self unregisterTextView:textView];
 	textView.ind_uniqueIdentifier = identifier;
 	textView.ind_fixSelectionHighlight = YES;
+	if (self.currentSession) {
+		INDTextViewSelectionRange *range = self.currentSession.selectionRanges[identifier];
+		if (range) {
+			textView.selectedRange = range.range;
+		}
+	}
 	self.textViews[identifier] = textView;
 	
 	[self.sortedTextViews addObject:textView];
