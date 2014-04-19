@@ -209,7 +209,10 @@ static void * INDUniqueIdentifierKey = &INDUniqueIdentifierKey;
 		if (event.clickCount > 1) return event;
 		
 		NSTextView *textView = [self validTextViewForEvent:event];
-		if (textView == nil) return event;
+		
+		// Ignore if the text view is not "owned" by this manager, or if it is being
+		// edited at the time of this event.
+		if (textView == nil || textView.window.firstResponder == textView) return event;
 		
 		[self endSession];
 		self.currentSession = [[INDTextViewSelectionSession alloc] initWithTextView:textView event:event];
