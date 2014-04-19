@@ -219,6 +219,7 @@ static void * INDBackgroundColorRangesKey = &INDBackgroundColorRangesKey;
 @property (nonatomic, strong, readonly) NSMutableOrderedSet *sortedTextViews;
 @property (nonatomic, strong) INDTextViewSelectionSession *currentSession;
 @property (nonatomic, strong) NSAttributedString *cachedAttributedText;
+@property (nonatomic, strong) id eventMonitor;
 @end
 
 @implementation INDSequentialTextSelectionManager
@@ -230,9 +231,16 @@ static void * INDBackgroundColorRangesKey = &INDBackgroundColorRangesKey;
 	if ((self = [super init])) {
 		_textViews = [NSMutableDictionary dictionary];
 		_sortedTextViews = [NSMutableOrderedSet orderedSet];
-		[self addLocalEventMonitor];
+		_eventMonitor = [self addLocalEventMonitor];
 	}
 	return self;
+}
+
+#pragma mark - Cleanup
+
+- (void)dealloc
+{
+	[NSEvent removeMonitor:_eventMonitor];
 }
 
 #pragma mark - Events
@@ -298,9 +306,9 @@ static void * INDBackgroundColorRangesKey = &INDBackgroundColorRangesKey;
 	return YES;
 }
 
-- (void)addLocalEventMonitor
+- (id)addLocalEventMonitor
 {
-	[NSEvent addLocalMonitorForEventsMatchingMask:NSLeftMouseDownMask | NSLeftMouseDraggedMask | NSLeftMouseUpMask | NSRightMouseDownMask handler:^NSEvent *(NSEvent *event) {
+	return [NSEvent addLocalMonitorForEventsMatchingMask:NSLeftMouseDownMask | NSLeftMouseDraggedMask | NSLeftMouseUpMask | NSRightMouseDownMask handler:^NSEvent *(NSEvent *event) {
 		switch (event.type) {
 			case NSLeftMouseDown:
 				return [self handleLeftMouseDown:event] ? nil : event;
