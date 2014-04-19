@@ -84,6 +84,8 @@ static void * INDUniqueIdentifierKey = &INDUniqueIdentifierKey;
 static void * INDFixSelectionHighlightKey = &INDFixSelectionHighlightKey;
 static void * INDBackgroundColorRangesKey = &INDBackgroundColorRangesKey;
 
+#define IND_DISABLED_SELECTED_TEXT_BG_COLOR [NSColor colorWithDeviceRed:0.83 green:0.83 blue:0.83 alpha:1.0]
+
 @interface NSTextView (INDSelectionHighlight)
 @property (nonatomic, assign) BOOL ind_fixSelectionHighlight;
 @property (nonatomic, strong) NSArray *ind_backgroundColorRanges;
@@ -96,15 +98,25 @@ static void * INDBackgroundColorRangesKey = &INDBackgroundColorRangesKey;
 	INDSwizzle(self, @selector(setSelectedRange:affinity:stillSelecting:), @selector(ind_setSelectedRange:affinity:stillSelecting:));
 }
 
+- (void)ind_highlightSelectedTextInRange:(NSRange)range drawActive:(BOOL)active
+{
+	NSColor *selectedColor = nil;
+	if (active) {
+		selectedColor = self.selectedTextAttributes[NSBackgroundColorAttributeName] ?: NSColor.selectedTextBackgroundColor;
+	} else {
+		selectedColor = IND_DISABLED_SELECTED_TEXT_BG_COLOR;
+	}
+	[self.textStorage removeAttribute:NSBackgroundColorAttributeName range:NSMakeRange(0, self.textStorage.length)];
+	[self.textStorage addAttribute:NSBackgroundColorAttributeName value:selectedColor range:range];
+}
+
 - (void)ind_setSelectedRange:(NSRange)charRange affinity:(NSSelectionAffinity)affinity stillSelecting:(BOOL)stillSelectingFlag
 {
 	if (self.ind_fixSelectionHighlight) {
 		if (self.ind_backgroundColorRanges == nil) {
 			[self ind_backgroundColorRanges];
 		}
-		NSColor *selectedColor = self.selectedTextAttributes[NSBackgroundColorAttributeName] ?: NSColor.selectedTextBackgroundColor;
-		[self.textStorage removeAttribute:NSBackgroundColorAttributeName range:NSMakeRange(0, self.textStorage.length)];
-		[self.textStorage addAttribute:NSBackgroundColorAttributeName value:selectedColor range:charRange];
+		[self ind_highlightSelectedTextInRange:charRange drawActive:YES];
 	} else {
 		[self ind_setSelectedRange:charRange affinity:affinity stillSelecting:stillSelectingFlag];
 	}
@@ -384,6 +396,27 @@ static void * INDBackgroundColorRangesKey = &INDBackgroundColorRangesKey;
 {
 	NSSharingService *service = item.representedObject;
 	[service performWithItems:@[self.cachedAttributedText]];
+}
+
+- (void)rehighlightSelectedRangesAsActive:(BOOL)active
+{
+	NSArray *ranges = self.currentSession.selectionRanges.allValues;
+	for (INDTextViewSelectionRange *range in ranges) {
+		NSTextView *textView = self.textViews[range.textViewIdentifier];
+		[textView ind_highlightSelectedTextInRange:range.range drawActive:active];
+	}
+}
+
+- (BOOL)resignFirstResponder
+{
+	[self rehighlightSelectedRangesAsActive:NO];
+	return YES;
+}
+
+- (BOOL)becomeFirstResponder
+{
+	[self rehighlightSelectedRangesAsActive:YES];
+	return YES;
 }
 
 #pragma mark - Selection
