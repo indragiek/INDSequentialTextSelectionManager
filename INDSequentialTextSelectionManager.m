@@ -188,9 +188,19 @@ static void * INDUniqueIdentifierKey = &INDUniqueIdentifierKey;
 	} else {
 		subarray = [self.sortedTextViews.array subarrayWithRange:subrange];
 	}
-	for (NSTextView *textView in subarray) {
-		NSRange range = NSMakeRange(0, select ? textView.string.length : 0);
-		[self setSelectionRangeForTextView:textView withRange:range affinity:affinity];
+	for (NSTextView *tv in subarray) {
+		NSRange range;
+		if (select) {
+			NSRange currentRange = tv.selectedRange;
+			if (affinity == NSSelectionAffinityDownstream) {
+				range = NSMakeRange(currentRange.location, textView.string.length - currentRange.location);
+			} else {
+				range = NSMakeRange(0, NSMaxRange(currentRange) ?: textView.string.length);
+			}
+		} else {
+			range = NSMakeRange(0, 0);
+		}
+		[self setSelectionRangeForTextView:tv withRange:range affinity:affinity];
 	}
 }
 
