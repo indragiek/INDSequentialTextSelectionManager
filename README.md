@@ -7,6 +7,8 @@ Here's a GIF demonstrating how it works:
 
 ![INDSequentialTextSelectionManager](https://raw.githubusercontent.com/indragiek/INDSequentialTextSelectionManager/master/demo.gif)
 
+**WARNING: This is alpha quality code at the moment and has not been tested in production.**
+
 ### How to use
 
 The API is extremely simple. These two methods are all you'll need:
@@ -46,7 +48,7 @@ Implementing `INDSequentialTextManager` support with an `NSTableView` is as easy
 
 * Support for other `NSTextView` contextual menu items like Services, Text to Speech, etc.
 * Autoscroll when dragging
-* Proper inactive state for selection
+* ~~Proper inactive state for selection~~
 
 ### Contact
 
