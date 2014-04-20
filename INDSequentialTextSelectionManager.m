@@ -571,11 +571,12 @@ static void * INDBackgroundColorRangesKey = &INDBackgroundColorRangesKey;
 - (void)unregisterTextView:(NSTextView *)textView
 {
 	if (textView.ind_uniqueIdentifier == nil) return;
-	textView.ind_fixSelectionHighlight = NO;
-	textView.ind_uniqueIdentifier = nil;
 	[self.textViews removeObjectForKey:textView.ind_uniqueIdentifier];
 	[self.sortedTextViews removeObject:textView];
 	[self sortTextViews];
+	
+	textView.ind_fixSelectionHighlight = NO;
+	textView.ind_uniqueIdentifier = nil;
 }
 
 - (void)unregisterAllTextViews
