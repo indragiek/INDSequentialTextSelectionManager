@@ -473,9 +473,9 @@ static void * INDBackgroundColorRangesKey = &INDBackgroundColorRangesKey;
 		if (select) {
 			NSRange currentRange = tv.selectedRange;
 			if (affinity == NSSelectionAffinityDownstream) {
-				range = NSMakeRange(currentRange.location, textView.string.length - currentRange.location);
+				range = NSMakeRange(currentRange.location, tv.string.length - currentRange.location);
 			} else {
-				range = NSMakeRange(0, NSMaxRange(currentRange) ?: textView.string.length);
+				range = NSMakeRange(0, NSMaxRange(currentRange) ?: tv.string.length);
 			}
 		} else {
 			range = NSMakeRange(0, 0);
