@@ -106,8 +106,11 @@ static void * INDBackgroundColorRangesKey = &INDBackgroundColorRangesKey;
 	} else {
 		selectedColor = IND_DISABLED_SELECTED_TEXT_BG_COLOR;
 	}
+	[self.textStorage beginEditing];
 	[self.textStorage removeAttribute:NSBackgroundColorAttributeName range:NSMakeRange(0, self.textStorage.length)];
 	[self.textStorage addAttribute:NSBackgroundColorAttributeName value:selectedColor range:range];
+	[self.textStorage endEditing];
+	[self setNeedsDisplay:YES];
 }
 
 - (void)ind_setSelectedRange:(NSRange)charRange affinity:(NSSelectionAffinity)affinity stillSelecting:(BOOL)stillSelectingFlag
@@ -511,7 +514,7 @@ static void * INDBackgroundColorRangesKey = &INDBackgroundColorRangesKey;
 	[keys enumerateObjectsUsingBlock:^(NSString *key, NSUInteger idx, BOOL *stop) {
 		INDTextViewSelectionRange *range = ranges[key];
 		[string appendAttributedString:range.attributedText];
-		if (idx != keys.count - 1) {
+		if (string.length && idx != keys.count - 1) {
 			NSDictionary *attributes = [string attributesAtIndex:string.length - 1 effectiveRange:NULL];
 			NSAttributedString *newline = [[NSAttributedString alloc] initWithString:@"\n" attributes:attributes];
 			[string appendAttributedString:newline];
