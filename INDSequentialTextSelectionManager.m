@@ -116,10 +116,7 @@ static void * INDHighlightedRangeKey = &INDHighlightedRangeKey;
 - (void)ind_deselectHighlightedText
 {
 	[self.textStorage beginEditing];
-	NSRange range = self.ind_highlightedRange;
-	if (range.length != 0) {
-		[self.textStorage removeAttribute:NSBackgroundColorAttributeName range:range];
-	}
+	[self.textStorage removeAttribute:NSBackgroundColorAttributeName range:NSMakeRange(0, self.string.length)];
 	NSArray *ranges = self.ind_backgroundColorRanges;
 	for (INDAttributeRange *range in ranges) {
 		[self.textStorage addAttribute:range.attribute value:range.value range:range.range];
