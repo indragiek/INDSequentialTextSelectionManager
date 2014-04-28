@@ -218,6 +218,7 @@ static void * INDHighlightedRangeKey = &INDHighlightedRangeKey;
 @property (nonatomic, strong) INDTextViewSelectionSession *currentSession;
 @property (nonatomic, strong) NSAttributedString *cachedAttributedText;
 @property (nonatomic, strong) id eventMonitor;
+@property (nonatomic, assign, getter = isFirstResponder) BOOL firstResponder;
 @end
 
 @implementation INDSequentialTextSelectionManager
@@ -396,12 +397,14 @@ static void * INDHighlightedRangeKey = &INDHighlightedRangeKey;
 - (BOOL)resignFirstResponder
 {
 	[self rehighlightSelectedRangesAsActive:NO];
+	self.firstResponder = NO;
 	return YES;
 }
 
 - (BOOL)becomeFirstResponder
 {
 	[self rehighlightSelectedRangesAsActive:YES];
+	self.firstResponder = YES;
 	return YES;
 }
 
@@ -518,7 +521,7 @@ static void * INDHighlightedRangeKey = &INDHighlightedRangeKey;
 	if (self.currentSession) {
 		INDTextViewSelectionRange *range = self.currentSession.selectionRanges[identifier];
 		if (range) {
-			textView.selectedRange = range.range;
+			[textView ind_highlightSelectedTextInRange:range.range drawActive:self.firstResponder];
 		}
 	}
 	self.textViews[identifier] = textView;
