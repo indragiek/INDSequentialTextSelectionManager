@@ -154,6 +154,7 @@ static void * INDHighlightedRangeKey = &INDHighlightedRangeKey;
 @property (nonatomic, copy, readonly) NSString *textViewIdentifier;
 @property (nonatomic, assign, readonly) NSRange range;
 @property (nonatomic, copy, readonly) NSAttributedString *attributedText;
+- (id)initWithTextView:(NSTextView *)textView selectedRange:(NSRange)range;
 @end
 
 @implementation INDTextViewSelectionRange
@@ -205,6 +206,25 @@ static void * INDHighlightedRangeKey = &INDHighlightedRangeKey;
 {
 	NSParameterAssert(textView.ind_uniqueIdentifier);
 	[_selectionRanges removeObjectForKey:textView.ind_uniqueIdentifier];
+}
+
+@end
+
+@interface INDTextViewMetadata : NSObject
+@property (nonatomic, strong, readonly) NSTextView *textView;
+@property (nonatomic, copy, readonly) INDAttributedTextTransformationBlock transformationBlock;
+- (id)initWithTextView:(NSTextView *)textView transformationBlock:(INDAttributedTextTransformationBlock)transformationBlock;
+@end
+
+@implementation INDTextViewMetadata
+
+- (id)initWithTextView:(NSTextView *)textView transformationBlock:(INDAttributedTextTransformationBlock)transformationBlock
+{
+	if ((self = [super init])) {
+		_textView = textView;
+		_transformationBlock = [transformationBlock copy];
+	}
+	return self;
 }
 
 @end
@@ -272,7 +292,8 @@ static void * INDHighlightedRangeKey = &INDHighlightedRangeKey;
 	if ([textView.ind_uniqueIdentifier isEqualTo:identifier]) {
 		current = self.currentSession.characterIndex;
 	} else {
-		NSUInteger start = [self.sortedTextViews indexOfObject:self.textViews[identifier]];
+		INDTextViewMetadata *meta = self.textViews[identifier];
+		NSUInteger start = [self.sortedTextViews indexOfObject:meta.textView];
 		NSUInteger end = [self.sortedTextViews indexOfObject:textView];
 		current = (end >= start) ? 0 : textView.string.length;
 	}
@@ -386,8 +407,8 @@ static void * INDHighlightedRangeKey = &INDHighlightedRangeKey;
 {
 	NSArray *ranges = self.currentSession.selectionRanges.allValues;
 	for (INDTextViewSelectionRange *range in ranges) {
-		NSTextView *textView = self.textViews[range.textViewIdentifier];
-		[textView ind_highlightSelectedTextInRange:range.range drawActive:active];
+		INDTextViewMetadata *meta = self.textViews[range.textViewIdentifier];
+		[meta.textView ind_highlightSelectedTextInRange:range.range drawActive:active];
 	}
 }
 
@@ -423,8 +444,8 @@ static void * INDHighlightedRangeKey = &INDHighlightedRangeKey;
 {
 	if (self.currentSession == nil) return;
 	
-	NSTextView *startingView = self.textViews[self.currentSession.textViewIdentifier];
-	NSUInteger start = [self.sortedTextViews indexOfObject:startingView];
+	INDTextViewMetadata *meta = self.textViews[self.currentSession.textViewIdentifier];
+	NSUInteger start = [self.sortedTextViews indexOfObject:meta.textView];
 	NSUInteger end = [self.sortedTextViews indexOfObject:textView];
 	if (start == NSNotFound || end == NSNotFound) return;
 	
@@ -472,8 +493,8 @@ static void * INDHighlightedRangeKey = &INDHighlightedRangeKey;
 
 - (void)endSession
 {
-	for (NSTextView *textView in self.textViews.allValues) {
-		[textView ind_deselectHighlightedText];
+	for (INDTextViewMetadata *meta in self.textViews.allValues) {
+		[meta.textView ind_deselectHighlightedText];
 	}
 	self.currentSession = nil;
 	self.cachedAttributedText = nil;
@@ -489,13 +510,20 @@ static void * INDHighlightedRangeKey = &INDHighlightedRangeKey;
 	NSMutableArray *keys = [ranges.allKeys mutableCopy];
 	NSComparator textViewComparator = self.textViewComparator;
 	[keys sortUsingComparator:^NSComparisonResult(NSString *obj1, NSString *obj2) {
-		return textViewComparator(self.textViews[obj1], self.textViews[obj2]);
+		INDTextViewMetadata *meta1 = self.textViews[obj1];
+		INDTextViewMetadata *meta2 = self.textViews[obj2];
+		return textViewComparator(meta1.textView, meta2.textView);
 	}];
 	NSMutableAttributedString *string = [[NSMutableAttributedString alloc] init];
 	[string beginEditing];
 	[keys enumerateObjectsUsingBlock:^(NSString *key, NSUInteger idx, BOOL *stop) {
 		INDTextViewSelectionRange *range = ranges[key];
-		[string appendAttributedString:range.attributedText];
+		INDTextViewMetadata *meta = self.textViews[range.textViewIdentifier];
+		NSAttributedString *fragment = range.attributedText;
+		if (meta.transformationBlock != nil) {
+			fragment = meta.transformationBlock(fragment);
+		}
+		[string appendAttributedString:fragment];
 		if (string.length && idx != keys.count - 1) {
 			NSDictionary *attributes = [string attributesAtIndex:string.length - 1 effectiveRange:NULL];
 			NSAttributedString *newline = [[NSAttributedString alloc] initWithString:@"\n" attributes:attributes];
@@ -508,7 +536,7 @@ static void * INDHighlightedRangeKey = &INDHighlightedRangeKey;
 
 #pragma mark - Registration
 
-- (void)registerTextView:(NSTextView *)textView withUniqueIdentifier:(NSString *)identifier
+- (void)registerTextView:(NSTextView *)textView withUniqueIdentifier:(NSString *)identifier transformationBlock:(INDAttributedTextTransformationBlock)block
 {
 	NSParameterAssert(identifier);
 	NSParameterAssert(textView);
@@ -521,7 +549,7 @@ static void * INDHighlightedRangeKey = &INDHighlightedRangeKey;
 			[textView ind_highlightSelectedTextInRange:range.range drawActive:self.firstResponder];
 		}
 	}
-	self.textViews[identifier] = textView;
+	self.textViews[identifier] = [[INDTextViewMetadata alloc] initWithTextView:textView transformationBlock:block];
 	
 	[self.sortedTextViews addObject:textView];
 	[self sortTextViews];
