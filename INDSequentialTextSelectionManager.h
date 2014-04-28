@@ -20,6 +20,14 @@ typedef NSAttributedString * (^INDAttributedTextTransformationBlock)(NSAttribute
  *
  *  @param textView   The `NSTextView` instance to register.
  *  @param identifier The unique identifier to associate with the text view instance.
+ */
+- (void)registerTextView:(NSTextView *)textView withUniqueIdentifier:(NSString *)identifier;
+
+/**
+ *  Registers a text view to participate in sequential selection.
+ *
+ *  @param textView   The `NSTextView` instance to register.
+ *  @param identifier The unique identifier to associate with the text view instance.
  *  @param block      A transformation block to apply to the contents of the text view
  *  before copying the text.
  */

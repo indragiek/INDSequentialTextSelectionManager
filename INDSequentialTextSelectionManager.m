@@ -536,6 +536,11 @@ static void * INDHighlightedRangeKey = &INDHighlightedRangeKey;
 
 #pragma mark - Registration
 
+- (void)registerTextView:(NSTextView *)textView withUniqueIdentifier:(NSString *)identifier
+{
+	[self registerTextView:textView withUniqueIdentifier:identifier transformationBlock:nil];
+}
+
 - (void)registerTextView:(NSTextView *)textView withUniqueIdentifier:(NSString *)identifier transformationBlock:(INDAttributedTextTransformationBlock)block
 {
 	NSParameterAssert(identifier);
