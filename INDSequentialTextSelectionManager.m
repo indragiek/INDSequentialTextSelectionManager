@@ -71,11 +71,13 @@ static void * INDUniqueIdentifierKey = &INDUniqueIdentifierKey;
 @end
 
 static void * INDBackgroundColorRangesKey = &INDBackgroundColorRangesKey;
+static void * INDHighlightedRangeKey = &INDHighlightedRangeKey;
 
 #define IND_DISABLED_SELECTED_TEXT_BG_COLOR [NSColor colorWithDeviceRed:0.83 green:0.83 blue:0.83 alpha:1.0]
 
 @interface NSTextView (INDSelectionHighlight)
 @property (nonatomic, strong) NSArray *ind_backgroundColorRanges;
+@property (nonatomic, assign) NSRange ind_highlightedRange;
 @end
 
 @implementation NSTextView (INDSelectionHighlight)
@@ -85,6 +87,8 @@ static void * INDBackgroundColorRangesKey = &INDBackgroundColorRangesKey;
 	if (self.ind_backgroundColorRanges == nil) {
 		[self ind_backgroundColorRanges];
 	}
+	self.ind_highlightedRange = range;
+	
 	NSColor *selectedColor = nil;
 	if (active) {
 		selectedColor = self.selectedTextAttributes[NSBackgroundColorAttributeName] ?: NSColor.selectedTextBackgroundColor;
@@ -109,13 +113,22 @@ static void * INDBackgroundColorRangesKey = &INDBackgroundColorRangesKey;
 	self.ind_backgroundColorRanges = ranges;
 }
 
-- (void)ind_restoreBackgroundColorState
+- (void)ind_deselectHighlightedText
 {
+	[self.textStorage beginEditing];
+	NSRange range = self.ind_highlightedRange;
+	if (range.length != 0) {
+		[self.textStorage removeAttribute:NSBackgroundColorAttributeName range:range];
+	}
 	NSArray *ranges = self.ind_backgroundColorRanges;
 	for (INDAttributeRange *range in ranges) {
 		[self.textStorage addAttribute:range.attribute value:range.value range:range.range];
 	}
+	[self.textStorage endEditing];
+	[self setNeedsDisplay:YES];
+	
 	self.ind_backgroundColorRanges = nil;
+	self.ind_highlightedRange = NSMakeRange(0, 0);
 }
 
 - (void)setInd_backgroundColorRanges:(NSArray *)ind_backgroundColorRanges
@@ -126,6 +139,16 @@ static void * INDBackgroundColorRangesKey = &INDBackgroundColorRangesKey;
 - (NSArray *)ind_backgroundColorRanges
 {
 	return objc_getAssociatedObject(self, INDBackgroundColorRangesKey);
+}
+
+- (void)setInd_highlightedRange:(NSRange)ind_highlightedRange
+{
+	objc_setAssociatedObject(self, INDHighlightedRangeKey, [NSValue valueWithRange:ind_highlightedRange], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
+- (NSRange)ind_highlightedRange
+{
+	return [objc_getAssociatedObject(self, INDHighlightedRangeKey) rangeValue];
 }
 
 @end
@@ -387,7 +410,7 @@ static void * INDBackgroundColorRangesKey = &INDBackgroundColorRangesKey;
 - (void)setSelectionRangeForTextView:(NSTextView *)textView withRange:(NSRange)range
 {
 	if (range.location == NSNotFound || NSMaxRange(range) == 0) {
-		textView.selectedRange = NSMakeRange(0, 0);
+		[textView ind_deselectHighlightedText];
 		[self.currentSession removeSelectionRangeForTextView:textView];
 	} else {
 		INDTextViewSelectionRange *selRange = [[INDTextViewSelectionRange alloc] initWithTextView:textView selectedRange:range];
@@ -434,7 +457,7 @@ static void * INDBackgroundColorRangesKey = &INDBackgroundColorRangesKey;
 	for (NSTextView *tv in subarray) {
 		NSRange range;
 		if (select) {
-			NSRange currentRange = tv.selectedRange;
+			NSRange currentRange = tv.ind_highlightedRange;
 			if (affinity == NSSelectionAffinityDownstream) {
 				range = NSMakeRange(currentRange.location, tv.string.length - currentRange.location);
 			} else {
@@ -450,8 +473,7 @@ static void * INDBackgroundColorRangesKey = &INDBackgroundColorRangesKey;
 - (void)endSession
 {
 	for (NSTextView *textView in self.textViews.allValues) {
-		textView.selectedRange = NSMakeRange(0, 0);
-		[textView ind_restoreBackgroundColorState];
+		[textView ind_deselectHighlightedText];
 	}
 	self.currentSession = nil;
 	self.cachedAttributedText = nil;
