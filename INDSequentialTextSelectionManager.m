@@ -85,7 +85,7 @@ static void * INDHighlightedRangeKey = &INDHighlightedRangeKey;
 - (void)ind_highlightSelectedTextInRange:(NSRange)range drawActive:(BOOL)active
 {
 	if (self.ind_backgroundColorRanges == nil) {
-		[self ind_backgroundColorRanges];
+		[self ind_backupBackgroundColorState];
 	}
 	self.ind_highlightedRange = range;
 	
