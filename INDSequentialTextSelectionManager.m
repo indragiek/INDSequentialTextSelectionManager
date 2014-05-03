@@ -107,6 +107,7 @@ static void * INDHighlightedRangeKey = &INDHighlightedRangeKey;
 	NSMutableArray *ranges = [NSMutableArray array];
 	NSString *attribute = NSBackgroundColorAttributeName;
 	[self.textStorage enumerateAttribute:attribute inRange:NSMakeRange(0, self.textStorage.length) options:0 usingBlock:^(id value, NSRange range, BOOL *stop) {
+		if (value == nil) return;
 		INDAttributeRange *attrRange = [[INDAttributeRange alloc] initWithAttribute:attribute value:value range:range];
 		[ranges addObject:attrRange];
 	}];
