@@ -278,13 +278,32 @@ static void * INDHighlightedRangeKey = &INDHighlightedRangeKey;
 	return YES;
 }
 
+- (BOOL)handleLeftMouseUp:(NSEvent *)event
+{
+	if (self.currentSession == nil) return NO;
+	[event.window makeFirstResponder:self];
+	NSTextView *textView = [self validTextViewForEvent:event];
+	if (textView == nil) return YES;
+	
+	// Handle link clicks properly.
+	NSUInteger index = INDCharacterIndexForTextViewEvent(event, textView);
+	NSDictionary *attributes = [textView.attributedString attributesAtIndex:index effectiveRange:NULL];
+	id link = attributes[NSLinkAttributeName];
+	
+	// From documentation, NSLinkAttributeName could be either an NSString * or NSURL *
+	if (link != nil) {
+		[textView clickedOnLink:link atIndex:index];
+	}
+	return YES;
+}
+
 - (BOOL)handleLeftMouseDragged:(NSEvent *)event
 {
 	if (self.currentSession == nil) return NO;
 	NSTextView *textView = [self validTextViewForEvent:event];
 	if (textView == nil) return YES;
-	[textView.window makeFirstResponder:textView];
 	
+	[textView.window makeFirstResponder:textView];
 	NSSelectionAffinity affinity = (event.locationInWindow.y < self.currentSession.windowPoint.y) ? NSSelectionAffinityDownstream : NSSelectionAffinityUpstream;
 	self.currentSession.windowPoint = event.locationInWindow;
 	
@@ -314,13 +333,6 @@ static void * INDHighlightedRangeKey = &INDHighlightedRangeKey;
 	NSMenu *menu = [self menuForEvent:event];
 	[NSMenu popUpContextMenu:menu withEvent:event forView:textView];
 	
-	return YES;
-}
-
-- (BOOL)handleLeftMouseUp:(NSEvent *)event
-{
-	if (self.currentSession == nil) return NO;
-	[event.window makeFirstResponder:self];
 	return YES;
 }
 
