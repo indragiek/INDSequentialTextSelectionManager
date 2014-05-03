@@ -266,12 +266,12 @@ static void * INDHighlightedRangeKey = &INDHighlightedRangeKey;
 {
 	// Allow for correct handling of double clicks on text views.
 	if (event.clickCount == 1) {
-		NSTextView *textView = [self validTextViewForEvent:event];
+		[self endSession];
 		
+		NSTextView *textView = [self validTextViewForEvent:event];
 		// Ignore if the text view is not "owned" by this manager, or if it is being
 		// edited at the time of this event.
 		if (textView && textView.window.firstResponder != textView) {
-			[self endSession];
 			self.currentSession = [[INDTextViewSelectionSession alloc] initWithTextView:textView event:event];
 			return YES;
 		}
