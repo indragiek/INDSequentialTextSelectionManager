@@ -265,34 +265,36 @@ static void * INDHighlightedRangeKey = &INDHighlightedRangeKey;
 - (BOOL)handleLeftMouseDown:(NSEvent *)event
 {
 	// Allow for correct handling of double clicks on text views.
-	if (event.clickCount > 1) return NO;
-	
-	NSTextView *textView = [self validTextViewForEvent:event];
-	
-	// Ignore if the text view is not "owned" by this manager, or if it is being
-	// edited at the time of this event.
-	if (textView == nil || textView.window.firstResponder == textView) return NO;
-	
-	[self endSession];
-	self.currentSession = [[INDTextViewSelectionSession alloc] initWithTextView:textView event:event];
-	return YES;
+	if (event.clickCount == 1) {
+		NSTextView *textView = [self validTextViewForEvent:event];
+		
+		// Ignore if the text view is not "owned" by this manager, or if it is being
+		// edited at the time of this event.
+		if (textView && textView.window.firstResponder != textView) {
+			[self endSession];
+			self.currentSession = [[INDTextViewSelectionSession alloc] initWithTextView:textView event:event];
+			return YES;
+		}
+	}
+	return NO;
 }
 
 - (BOOL)handleLeftMouseUp:(NSEvent *)event
 {
 	if (self.currentSession == nil) return NO;
+	
 	[event.window makeFirstResponder:self];
 	NSTextView *textView = [self validTextViewForEvent:event];
-	if (textView == nil) return YES;
-	
-	// Handle link clicks properly.
-	NSUInteger index = INDCharacterIndexForTextViewEvent(event, textView);
-	NSDictionary *attributes = [textView.attributedString attributesAtIndex:index effectiveRange:NULL];
-	id link = attributes[NSLinkAttributeName];
-	
-	// From documentation, NSLinkAttributeName could be either an NSString * or NSURL *
-	if (link != nil) {
-		[textView clickedOnLink:link atIndex:index];
+	if (textView != nil) {
+		// Handle link clicks properly.
+		NSUInteger index = INDCharacterIndexForTextViewEvent(event, textView);
+		NSDictionary *attributes = [textView.attributedString attributesAtIndex:index effectiveRange:NULL];
+		id link = attributes[NSLinkAttributeName];
+		
+		// From documentation, NSLinkAttributeName could be either an NSString * or NSURL *
+		if (link != nil) {
+			[textView clickedOnLink:link atIndex:index];
+		}
 	}
 	return YES;
 }
@@ -300,39 +302,41 @@ static void * INDHighlightedRangeKey = &INDHighlightedRangeKey;
 - (BOOL)handleLeftMouseDragged:(NSEvent *)event
 {
 	if (self.currentSession == nil) return NO;
+	
 	NSTextView *textView = [self validTextViewForEvent:event];
-	if (textView == nil) return YES;
-	
-	[textView.window makeFirstResponder:textView];
-	NSSelectionAffinity affinity = (event.locationInWindow.y < self.currentSession.windowPoint.y) ? NSSelectionAffinityDownstream : NSSelectionAffinityUpstream;
-	self.currentSession.windowPoint = event.locationInWindow;
-	
-	NSUInteger current;
-	NSString *identifier = self.currentSession.textViewIdentifier;
-	if ([textView.ind_uniqueIdentifier isEqualTo:identifier]) {
-		current = self.currentSession.characterIndex;
-	} else {
-		INDTextViewMetadata *meta = self.textViews[identifier];
-		NSUInteger start = [self.sortedTextViews indexOfObject:meta.textView];
-		NSUInteger end = [self.sortedTextViews indexOfObject:textView];
-		current = (end >= start) ? 0 : textView.string.length;
+	if (textView != nil) {
+		[textView.window makeFirstResponder:textView];
+		NSSelectionAffinity affinity = (event.locationInWindow.y < self.currentSession.windowPoint.y) ? NSSelectionAffinityDownstream : NSSelectionAffinityUpstream;
+		self.currentSession.windowPoint = event.locationInWindow;
+		
+		NSUInteger current;
+		NSString *identifier = self.currentSession.textViewIdentifier;
+		if ([textView.ind_uniqueIdentifier isEqualTo:identifier]) {
+			current = self.currentSession.characterIndex;
+		} else {
+			INDTextViewMetadata *meta = self.textViews[identifier];
+			NSUInteger start = [self.sortedTextViews indexOfObject:meta.textView];
+			NSUInteger end = [self.sortedTextViews indexOfObject:textView];
+			current = (end >= start) ? 0 : textView.string.length;
+		}
+		NSUInteger index = INDCharacterIndexForTextViewEvent(event, textView);
+		NSRange range = INDForwardRangeForIndices(index, current);
+		[self setSelectionRangeForTextView:textView withRange:range];
+		[self processCompleteSelectionsForTargetTextView:textView affinity:affinity];
 	}
-	NSUInteger index = INDCharacterIndexForTextViewEvent(event, textView);
-	NSRange range = INDForwardRangeForIndices(index, current);
-	[self setSelectionRangeForTextView:textView withRange:range];
-	[self processCompleteSelectionsForTargetTextView:textView affinity:affinity];
 	return YES;
 }
 
 - (BOOL)handleRightMouseDown:(NSEvent *)event
 {
 	if (self.currentSession == nil) return NO;
+	
+	[event.window makeFirstResponder:self];
 	NSTextView *textView = [self validTextViewForEvent:event];
-	if (textView == nil) return YES;
-	
-	NSMenu *menu = [self menuForEvent:event];
-	[NSMenu popUpContextMenu:menu withEvent:event forView:textView];
-	
+	if (textView != nil) {
+		NSMenu *menu = [self menuForEvent:event];
+		[NSMenu popUpContextMenu:menu withEvent:event forView:textView];
+	}
 	return YES;
 }
 
