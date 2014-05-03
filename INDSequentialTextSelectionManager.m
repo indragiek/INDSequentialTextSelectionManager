@@ -288,12 +288,14 @@ static void * INDHighlightedRangeKey = &INDHighlightedRangeKey;
 	if (textView != nil) {
 		// Handle link clicks properly.
 		NSUInteger index = INDCharacterIndexForTextViewEvent(event, textView);
-		NSDictionary *attributes = [textView.attributedString attributesAtIndex:index effectiveRange:NULL];
-		id link = attributes[NSLinkAttributeName];
-		
-		// From documentation, NSLinkAttributeName could be either an NSString * or NSURL *
-		if (link != nil) {
-			[textView clickedOnLink:link atIndex:index];
+		if (index < textView.string.length) {
+			NSDictionary *attributes = [textView.attributedString attributesAtIndex:index effectiveRange:NULL];
+			id link = attributes[NSLinkAttributeName];
+			
+			// From documentation, NSLinkAttributeName could be either an NSString * or NSURL *
+			if (link != nil) {
+				[textView clickedOnLink:link atIndex:index];
+			}
 		}
 	}
 	return YES;
